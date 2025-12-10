@@ -185,6 +185,9 @@ export default function TicketPage() {
       name: formData.name,
     });
 
+    // Store email for ticket lookup
+    localStorage.setItem('user_email', formData.email);
+    
     setIsSubmitting(false);
     setIsSubmitted(true);
   };
@@ -272,18 +275,29 @@ export default function TicketPage() {
               <span className="text-surface-900">Submit Ticket</span>
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center">
-                <Ticket className="w-7 h-7 text-primary-600" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-primary-100 rounded-2xl flex items-center justify-center">
+                  <Ticket className="w-7 h-7 text-primary-600" />
+                </div>
+                <div>
+                  <h1 className="font-display text-3xl font-bold text-surface-900">
+                    Submit a Support Ticket
+                  </h1>
+                  <p className="mt-1 text-surface-600">
+                    Describe your issue and we&apos;ll help you resolve it quickly.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="font-display text-3xl font-bold text-surface-900">
-                  Submit a Support Ticket
-                </h1>
-                <p className="mt-1 text-surface-600">
-                  Describe your issue and we&apos;ll help you resolve it quickly.
-                </p>
-              </div>
+              <Link
+                href="/support/tickets"
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-surface-100 hover:bg-surface-200 text-surface-700 rounded-lg transition-colors text-sm font-medium"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                View My Tickets
+              </Link>
             </div>
           </motion.div>
         </div>

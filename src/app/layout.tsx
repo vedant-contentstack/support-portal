@@ -3,7 +3,6 @@ import './globals.css';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { LyticsProvider } from '@/components/LyticsProvider';
-import { PersonalizationBanner } from '@/components/PersonalizationBanner';
 import { AIChatWrapper } from '@/components/AIChatWrapper';
 
 export const metadata: Metadata = {
@@ -20,7 +19,6 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen flex flex-col">
         <LyticsProvider>
-          <PersonalizationBanner />
           <Navigation />
           <main className="flex-1">
             {children}

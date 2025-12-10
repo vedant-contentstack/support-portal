@@ -249,9 +249,176 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+// Fetch tickets for a user by email
+async function fetchUserTickets(email: string) {
+  if (!HUBSPOT_API_KEY) return [];
+
+  try {
+    // First, find contact by email
+    const searchResponse = await fetch(
+      `${HUBSPOT_API_URL}/crm/v3/objects/contacts/search`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HUBSPOT_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filterGroups: [
+            {
+              filters: [
+                {
+                  propertyName: "email",
+                  operator: "EQ",
+                  value: email,
+                },
+              ],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!searchResponse.ok) {
+      console.error("Failed to search contacts");
+      return [];
+    }
+
+    const searchData = await searchResponse.json();
+    const contactId = searchData.results?.[0]?.id;
+
+    if (!contactId) {
+      console.log("No contact found for email:", email);
+      return [];
+    }
+
+    // Get tickets associated with this contact
+    const ticketsResponse = await fetch(
+      `${HUBSPOT_API_URL}/crm/v3/objects/contacts/${contactId}/associations/tickets`,
+      {
+        headers: {
+          Authorization: `Bearer ${HUBSPOT_API_KEY}`,
+        },
+      }
+    );
+
+    if (!ticketsResponse.ok) {
+      console.error("Failed to fetch ticket associations");
+      return [];
+    }
+
+    const ticketsData = await ticketsResponse.json();
+    const ticketIds = ticketsData.results?.map((t: { id: string }) => t.id) || [];
+
+    if (ticketIds.length === 0) {
+      return [];
+    }
+
+    // Fetch ticket details
+    const ticketDetailsResponse = await fetch(
+      `${HUBSPOT_API_URL}/crm/v3/objects/tickets/batch/read`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${HUBSPOT_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          inputs: ticketIds.map((id: string) => ({ id })),
+          properties: [
+            "subject",
+            "content",
+            "hs_pipeline_stage",
+            "hs_ticket_priority",
+            "hs_ticket_category",
+            "createdate",
+            "hs_lastmodifieddate",
+          ],
+        }),
+      }
+    );
+
+    if (!ticketDetailsResponse.ok) {
+      console.error("Failed to fetch ticket details");
+      return [];
+    }
+
+    const ticketDetails = await ticketDetailsResponse.json();
+
+    // Map to our format
+    return ticketDetails.results.map(
+      (ticket: {
+        id: string;
+        properties: {
+          subject: string;
+          content: string;
+          hs_pipeline_stage: string;
+          hs_ticket_priority: string;
+          hs_ticket_category: string;
+          createdate: string;
+          hs_lastmodifieddate: string;
+        };
+      }) => ({
+        id: ticket.id,
+        subject: ticket.properties.subject,
+        description: ticket.properties.content,
+        status: mapPipelineStage(ticket.properties.hs_pipeline_stage),
+        priority: ticket.properties.hs_ticket_priority?.toLowerCase() || "medium",
+        category: mapCategory(ticket.properties.hs_ticket_category),
+        createdAt: ticket.properties.createdate,
+        updatedAt: ticket.properties.hs_lastmodifieddate,
+      })
+    );
+  } catch (error) {
+    console.error("Error fetching user tickets:", error);
+    return [];
+  }
+}
+
+// Map HubSpot pipeline stage to readable status
+function mapPipelineStage(stage: string): string {
+  const stageMap: Record<string, string> = {
+    "1": "New",
+    "2": "Waiting on contact",
+    "3": "Waiting on us",
+    "4": "Closed",
+  };
+  return stageMap[stage] || "Open";
+}
+
+// Map HubSpot category back to our categories
+function mapCategory(hubspotCategory: string): string {
+  const reverseMap: Record<string, string> = {
+    PRODUCT_ISSUE: "Technical",
+    BILLING_ISSUE: "Billing",
+    FEATURE_REQUEST: "Feature Request",
+    GENERAL_INQUIRY: "General",
+  };
+  return reverseMap[hubspotCategory] || "General";
+}
+
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const email = searchParams.get("email");
+
+  if (!email) {
+    return NextResponse.json(
+      { error: "Email parameter required" },
+      { status: 400 }
+    );
+  }
+
+  if (!HUBSPOT_API_KEY) {
+    return NextResponse.json(
+      { error: "HubSpot not configured" },
+      { status: 500 }
+    );
+  }
+
+  const tickets = await fetchUserTickets(email);
+
   return NextResponse.json({
-    status: "ok",
-    message: "Support ticket API is running",
+    success: true,
+    tickets,
   });
 }

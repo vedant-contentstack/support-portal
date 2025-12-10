@@ -8,13 +8,11 @@ import {
   ArrowRight,
   Clock,
   BookOpen,
-  TrendingUp,
 } from "lucide-react";
 import { useLytics } from "./LyticsProvider";
 import {
   fetchLyticsRecommendations,
   trackEvent,
-  type LyticsContentRecommendation,
 } from "@/lib/lytics";
 import {
   getArticlesByUids,
@@ -22,14 +20,9 @@ import {
   type Article,
 } from "@/lib/contentstack";
 
-interface RecommendedArticle extends Article {
-  relevanceScore?: number;
-  topTopics?: string[];
-}
-
 export function PersonalizedRecommendations() {
   const { profile, isLoading: profileLoading } = useLytics();
-  const [articles, setArticles] = useState<RecommendedArticle[]>([]);
+  const [articles, setArticles] = useState<Article[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isPersonalized, setIsPersonalized] = useState(false);
 
@@ -45,12 +38,14 @@ export function PersonalizedRecommendations() {
             profile.uid
           );
 
-          const lyticsRecs = await fetchLyticsRecommendations(profile.uid, 6);
+          // Get first 3 recommendations from Lytics
+          const lyticsRecs = await fetchLyticsRecommendations(profile.uid, 3);
           console.log("[Recommendations] Lytics recommendations:", lyticsRecs);
 
           if (lyticsRecs.length > 0) {
-            // Extract contentstack UIDs
+            // Extract contentstack UIDs (first 3 only)
             const uids = lyticsRecs
+              .slice(0, 3)
               .map((rec) => rec.contentstack_uid)
               .filter(Boolean);
             console.log("[Recommendations] Contentstack UIDs:", uids);
@@ -62,48 +57,19 @@ export function PersonalizedRecommendations() {
               fullArticles.length
             );
 
-            // Merge Lytics data with Contentstack articles
-            const enrichedArticles: RecommendedArticle[] = fullArticles.map(
-              (article) => {
-                const lyticsRec = lyticsRecs.find(
-                  (rec) => rec.contentstack_uid === article.uid
-                );
+            if (fullArticles.length > 0) {
+              setArticles(fullArticles.slice(0, 3));
+              setIsPersonalized(true);
 
-                // Get top 3 topics by relevance
-                const topTopics = lyticsRec
-                  ? Object.entries(lyticsRec.topic_relevances)
-                      .sort(([, a], [, b]) => b - a)
-                      .slice(0, 3)
-                      .map(([topic]) => topic)
-                  : [];
+              // Track recommendations shown
+              trackEvent("lytics_recommendations_shown", {
+                user_uid: profile.uid,
+                articles: fullArticles.map((a) => a.uid),
+              });
 
-                // Calculate overall relevance score (average of top topic scores)
-                const relevanceScore = lyticsRec
-                  ? Object.values(lyticsRec.topic_relevances)
-                      .sort((a, b) => b - a)
-                      .slice(0, 3)
-                      .reduce((sum, score) => sum + score, 0) / 3
-                  : 0;
-
-                return {
-                  ...article,
-                  relevanceScore: Math.round(relevanceScore * 100),
-                  topTopics,
-                };
-              }
-            );
-
-            setArticles(enrichedArticles.slice(0, 3));
-            setIsPersonalized(true);
-
-            // Track recommendations shown
-            trackEvent("lytics_recommendations_shown", {
-              user_uid: profile.uid,
-              articles: enrichedArticles.map((a) => a.uid),
-            });
-
-            setIsLoading(false);
-            return;
+              setIsLoading(false);
+              return;
+            }
           }
         }
 
@@ -130,7 +96,7 @@ export function PersonalizedRecommendations() {
     loadRecommendations();
   }, [profile, profileLoading]);
 
-  const handleArticleClick = (article: RecommendedArticle) => {
+  const handleArticleClick = (article: Article) => {
     const cat = Array.isArray(article.category) ? article.category[0] : null;
     const categoryName =
       cat && typeof cat === "object" && "title" in cat ? cat.title : "";
@@ -138,7 +104,6 @@ export function PersonalizedRecommendations() {
       article_uid: article.uid,
       article_title: article.title,
       category: categoryName,
-      relevance_score: article.relevanceScore,
       is_personalized: isPersonalized,
     });
   };
@@ -237,12 +202,6 @@ export function PersonalizedRecommendations() {
                     <Clock className="w-3 h-3" />
                     {article.reading_time || 5} min read
                   </span>
-                  {isPersonalized && article.relevanceScore && (
-                    <span className="flex items-center gap-1 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
-                      <TrendingUp className="w-3 h-3" />
-                      {article.relevanceScore}% match
-                    </span>
-                  )}
                 </div>
                 <h3 className="text-lg font-semibold text-surface-900 group-hover:text-primary-600 transition-colors line-clamp-2">
                   {article.title}
@@ -252,21 +211,6 @@ export function PersonalizedRecommendations() {
                     {article.excerpt}
                   </p>
                 )}
-                {/* Show top topics for personalized recommendations */}
-                {isPersonalized &&
-                  article.topTopics &&
-                  article.topTopics.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {article.topTopics.map((topic) => (
-                        <span
-                          key={topic}
-                          className="text-xs text-surface-500 bg-surface-100 px-2 py-0.5 rounded"
-                        >
-                          {topic}
-                        </span>
-                      ))}
-                    </div>
-                  )}
                 <div className="mt-4 flex items-center gap-2 text-sm font-medium text-primary-600 opacity-0 group-hover:opacity-100 transition-opacity">
                   <BookOpen className="w-4 h-4" />
                   Read article

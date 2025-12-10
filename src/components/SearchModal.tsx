@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X, FileText, ArrowRight, Loader2, TrendingUp } from "lucide-react";
+import {
+  Search,
+  X,
+  FileText,
+  ArrowRight,
+  Loader2,
+  TrendingUp,
+} from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { trackSearch, getUserTopicAffinities } from "@/lib/lytics";
@@ -27,7 +34,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isBoosted, setIsBoosted] = useState(false);
-  const [userAffinities, setUserAffinities] = useState<Record<string, number>>({});
+  const [userAffinities, setUserAffinities] = useState<Record<string, number>>(
+    {}
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load recent articles and user affinities on mount
@@ -42,48 +51,58 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         console.log("[Search] Loading user affinities for:", profile.uid);
         const affinities = await getUserTopicAffinities(profile.uid);
         setUserAffinities(affinities);
-        console.log("[Search] User affinities loaded:", Object.keys(affinities).length, "topics");
+        console.log(
+          "[Search] User affinities loaded:",
+          Object.keys(affinities).length,
+          "topics"
+        );
       }
     }
     loadInitialData();
   }, [profile?.uid]);
 
   // Search function with debounce
-  const performSearch = useCallback(async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      setIsBoosted(false);
-      return;
-    }
-
-    setIsSearching(true);
-
-    try {
-      let searchResults: (Article | BoostedSearchResult)[];
-
-      // Use boosted search if user has affinities
-      if (Object.keys(userAffinities).length > 0) {
-        console.log("[Search] Using boosted search with affinities");
-        searchResults = await searchArticlesWithBoost(searchQuery, userAffinities);
-        setIsBoosted(true);
-      } else {
-        console.log("[Search] Using regular search");
-        searchResults = await searchArticles(searchQuery);
+  const performSearch = useCallback(
+    async (searchQuery: string) => {
+      if (!searchQuery.trim()) {
+        setResults([]);
         setIsBoosted(false);
+        return;
       }
 
-      setResults(searchResults);
-      setSelectedIndex(0);
+      setIsSearching(true);
 
-      // Track search in Lytics
-      trackSearch(searchQuery, searchResults.length);
-    } catch (error) {
-      console.error("Search error:", error);
-      setResults([]);
-    }
+      try {
+        let searchResults: (Article | BoostedSearchResult)[];
 
-    setIsSearching(false);
-  }, [userAffinities]);
+        // Use boosted search if user has affinities
+        if (Object.keys(userAffinities).length > 0) {
+          console.log("[Search] Using boosted search with affinities");
+          searchResults = await searchArticlesWithBoost(
+            searchQuery,
+            userAffinities
+          );
+          setIsBoosted(true);
+        } else {
+          console.log("[Search] Using regular search");
+          searchResults = await searchArticles(searchQuery);
+          setIsBoosted(false);
+        }
+
+        setResults(searchResults);
+        setSelectedIndex(0);
+
+        // Track search in Lytics
+        trackSearch(searchQuery, searchResults.length);
+      } catch (error) {
+        console.error("Search error:", error);
+        setResults([]);
+      }
+
+      setIsSearching(false);
+    },
+    [userAffinities]
+  );
 
   // Debounced search
   useEffect(() => {
@@ -160,7 +179,9 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return "";
   };
 
-  const isBoostedResult = (result: Article | BoostedSearchResult): result is BoostedSearchResult => {
+  const isBoostedResult = (
+    result: Article | BoostedSearchResult
+  ): result is BoostedSearchResult => {
     return "affinityBoost" in result;
   };
 
@@ -273,13 +294,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                             {getCategoryName(article)}
                           </span>
                         )}
-                        {/* Show affinity boost indicator */}
-                        {isBoostedResult(article) && article.affinityBoost > 0 && (
-                          <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-50 text-green-600 rounded-full">
-                            <TrendingUp className="w-3 h-3" />
-                            +{article.affinityBoost}% match
-                          </span>
-                        )}
+                        {/* Show personalized indicator when article matches user's interests */}
+                        {isBoostedResult(article) &&
+                          article.affinityBoost > 0 && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-green-50 text-green-600 rounded-full">
+                              <TrendingUp className="w-3 h-3" />
+                              Recommended
+                            </span>
+                          )}
                       </div>
                       {article.excerpt && (
                         <p className="text-sm text-surface-500 truncate mt-0.5">
@@ -287,18 +309,19 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                         </p>
                       )}
                       {/* Show matched topics */}
-                      {isBoostedResult(article) && article.matchedTopics.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {article.matchedTopics.slice(0, 3).map((topic) => (
-                            <span
-                              key={topic}
-                              className="text-xs text-surface-500 bg-surface-100 px-1.5 py-0.5 rounded"
-                            >
-                              {topic}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {isBoostedResult(article) &&
+                        article.matchedTopics.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {article.matchedTopics.slice(0, 3).map((topic) => (
+                              <span
+                                key={topic}
+                                className="text-xs text-surface-500 bg-surface-100 px-1.5 py-0.5 rounded"
+                              >
+                                {topic}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                     </div>
                     <ArrowRight
                       className={`w-4 h-4 mt-1 transition-colors ${

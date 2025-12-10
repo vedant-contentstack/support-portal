@@ -492,17 +492,12 @@ export async function searchArticlesWithBoost(
 
     if (baseResults.length === 0) return [];
 
-    // Calculate boosted scores
-    const boostedResults: BoostedSearchResult[] = baseResults.map((article) => {
-      // Base search score (position-based, higher for earlier results)
-      const position = baseResults.indexOf(article);
-      const searchScore = 1 - position * 0.05; // 1.0, 0.95, 0.90, etc.
-
-      // Calculate affinity boost from article tags/topics
-      let affinityBoost = 0;
+    // Calculate affinity scores for each article
+    const boostedResults: BoostedSearchResult[] = baseResults.map((article, index) => {
       const matchedTopics: string[] = [];
+      let maxAffinity = 0;
 
-      // Check article tags against user affinities
+      // Check article against user's topic affinities
       const articleTags = article.article_tags || [];
       const articleTitle = article.title?.toLowerCase() || "";
       const articleExcerpt = article.excerpt?.toLowerCase() || "";
@@ -520,37 +515,39 @@ export async function searchArticlesWithBoost(
         const matchesExcerpt = articleExcerpt.includes(topicLower);
 
         if (matchesTag || matchesTitle || matchesExcerpt) {
-          affinityBoost += affinity * 0.3; // Weight affinity contribution
           matchedTopics.push(topic);
+          // Track the highest affinity score among matched topics
+          maxAffinity = Math.max(maxAffinity, affinity);
         }
       }
 
-      // Cap affinity boost at 0.5 to not completely override search relevance
-      affinityBoost = Math.min(affinityBoost, 0.5);
+      // affinityBoost is the max affinity score (0-1) as percentage
+      // This represents how much this article aligns with user's top interests
+      const affinityBoost = Math.round(maxAffinity * 100);
 
-      // Total score: 70% search relevance + 30% affinity boost
-      const totalScore =
-        searchScore * 0.7 + affinityBoost * 0.3 + affinityBoost;
+      // Search score based on position (for sorting, not display)
+      const searchScore = 100 - index * 5;
+
+      // Total score for sorting: prioritize personalized matches
+      const totalScore = searchScore + affinityBoost;
 
       return {
         ...article,
-        searchScore: Math.round(searchScore * 100),
-        affinityBoost: Math.round(affinityBoost * 100),
-        totalScore: Math.round(totalScore * 100),
+        searchScore,
+        affinityBoost, // This is what we show as "match %"
+        totalScore,
         matchedTopics,
       };
     });
 
-    // Sort by total score descending
+    // Sort by total score descending (personalized results bubble up)
     boostedResults.sort((a, b) => b.totalScore - a.totalScore);
 
     console.log(
       "[Search] Boosted results:",
       boostedResults.map((r) => ({
         title: r.title,
-        searchScore: r.searchScore,
         affinityBoost: r.affinityBoost,
-        totalScore: r.totalScore,
         matchedTopics: r.matchedTopics,
       }))
     );

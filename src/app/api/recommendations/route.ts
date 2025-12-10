@@ -30,6 +30,7 @@ export async function GET(request: NextRequest) {
   }
 
   const accountId = process.env.NEXT_PUBLIC_LYTICS_ACCOUNT_ID;
+  const token = process.env.NEXT_PUBLIC_LYTICS_TOKEN;
 
   if (!accountId) {
     return NextResponse.json(
@@ -38,20 +39,32 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  if (!token) {
+    return NextResponse.json(
+      { error: "Lytics token not configured" },
+      { status: 500 }
+    );
+  }
+
   try {
-    const url = `https://api.lytics.io/api/content/recommend/${accountId}/user/_uid/${userUid}?limit=${limit}`;
+    const url = `https://api.lytics.io/api/content/recommend/user/_uids/${userUid}?account_id=${accountId}`;
     console.log("[API/recommendations] Fetching from Lytics:", url);
 
     const response = await fetch(url, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
+        Authorization: token,
       },
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("[API/recommendations] Lytics API error:", response.status, errorText);
+      console.error(
+        "[API/recommendations] Lytics API error:",
+        response.status,
+        errorText
+      );
       return NextResponse.json(
         { error: "Failed to fetch recommendations", details: errorText },
         { status: response.status }
@@ -59,7 +72,11 @@ export async function GET(request: NextRequest) {
     }
 
     const data: LyticsResponse = await response.json();
-    console.log("[API/recommendations] Received", data.data?.length || 0, "recommendations");
+    console.log(
+      "[API/recommendations] Received",
+      data.data?.length || 0,
+      "recommendations"
+    );
 
     return NextResponse.json(data);
   } catch (error) {
@@ -70,4 +87,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
