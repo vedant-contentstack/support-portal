@@ -4,7 +4,7 @@ import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { LyticsProvider } from '@/components/LyticsProvider';
 import { PersonalizationBanner } from '@/components/PersonalizationBanner';
-import { FloatingHelpWidget } from '@/components/FloatingHelpWidget';
+import { AIChatWrapper } from '@/components/AIChatWrapper';
 
 export const metadata: Metadata = {
   title: 'Support Portal | Your Help Center',
@@ -26,7 +26,7 @@ export default function RootLayout({
             {children}
           </main>
           <Footer />
-          <FloatingHelpWidget />
+          <AIChatWrapper />
         </LyticsProvider>
       </body>
     </html>
